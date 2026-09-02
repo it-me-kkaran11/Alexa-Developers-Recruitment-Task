@@ -1,7 +1,7 @@
 # Workshop Registration Platform
 
 A production-ready, full-stack workshop/event registration platform with integrated payments, email confirmations, and admin dashboard.
-
+https://alexa-developers-recruitment-task-l50vykhnu-it-me-kkaran11.vercel.app
 ## 🎯 Features
 
 - **OAuth Authentication**: Google and GitHub OAuth integration with Auth.js
