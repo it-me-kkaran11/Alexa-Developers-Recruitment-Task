@@ -94,7 +94,7 @@ You now have a **complete, production-ready, full-stack workshop registration pl
 - `.eslintrc.json` - ESLint configuration
 
 #### Development
-- `docker-compose.yml` - PostgreSQL Docker setup
+- `.env.example` - Supabase PostgreSQL environment template
 - `.gitignore` - Git ignore patterns
 - `package.json` - Dependencies and scripts
 
@@ -140,7 +140,7 @@ cp .env.example .env.local
 # Edit .env.local with OAuth/Stripe credentials
 
 # 3. Database
-docker-compose up -d  # Start PostgreSQL
+# Configure DATABASE_URL and DIRECT_URL with Supabase connection strings first
 npx prisma migrate dev
 npx prisma db seed
 

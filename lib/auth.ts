@@ -17,7 +17,7 @@ declare module "next-auth" {
 
 const adminEmails = (process.env.ADMIN_EMAILS || "")
   .split(",")
-  .map((email) => email.trim())
+  .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -39,13 +39,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token, user }) {
       if (session.user) {
-        session.user.id = token.id as string;
+        session.user.id = user?.id || (token?.id as string);
         
         // Fetch latest role from database
         const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email! },
+          where: { id: session.user.id },
           select: { role: true },
         });
         
@@ -54,7 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
     async signIn({ user }) {
-      if (user.email && adminEmails.includes(user.email)) {
+      if (user.email && adminEmails.includes(user.email.toLowerCase())) {
         // Update or create user with ADMIN role
         await prisma.user.upsert({
           where: { email: user.email },

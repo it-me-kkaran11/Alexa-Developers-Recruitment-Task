@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, getWebhookSecret } from "@/lib/stripe";
-import { markAsPaid, emailAlreadySent, markEmailSent } from "@/lib/registration";
+import {
+  claimConfirmationEmail,
+  releaseConfirmationEmailClaim,
+  markEmailSent,
+} from "@/lib/registration";
 import { sendConfirmationEmail } from "@/lib/email";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * Stripe Webhook Handler
@@ -51,17 +57,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if event was already processed (idempotency)
-    const existingEvent = await prisma.stripeEvent.findUnique({
-      where: { stripeEventId: event.id },
-    });
-
-    if (existingEvent) {
-      // Event already processed, return success to acknowledge
-      console.log(`Event ${event.id} already processed`);
-      return NextResponse.json({ success: true, statusCode: 200 });
-    }
-
     // Handle checkout.session.completed event
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
@@ -82,56 +77,102 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Get registration and verify it exists
-      const registration = await prisma.registration.findUnique({
-        where: { id: registrationId },
-        include: {
-          user: true,
-          workshop: true,
-        },
-      });
-
-      if (!registration) {
-        console.error(`Registration not found: ${registrationId}`);
+      if (session.payment_status !== "paid") {
         return NextResponse.json(
-          {
-            success: false,
-            error: "Registration not found",
-          },
-          { status: 404 }
-        );
-      }
-
-      // Verify amount matches
-      if (session.amount_total !== registration.amount) {
-        console.error(
-          `Amount mismatch for registration ${registrationId}`,
-          {
-            stripeAmount: session.amount_total,
-            registrationAmount: registration.amount,
-          }
-        );
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Amount mismatch",
-          },
+          { success: false, error: "Payment is not complete" },
           { status: 400 }
         );
       }
 
-      // Mark registration as paid
-      await markAsPaid(
-        registrationId,
-        session.id,
-        session.payment_intent as string
-      );
+      let registration;
+      try {
+        // Claim the event and update the registration in one transaction. The
+        // unique event ID makes simultaneous deliveries safe.
+        registration = await prisma.$transaction(async (tx) => {
+          await tx.stripeEvent.create({
+            data: { stripeEventId: event.id, type: event.type },
+          });
+
+          const currentRegistration = await tx.registration.findUnique({
+            where: { id: registrationId },
+            include: { user: true, workshop: true },
+          });
+
+          if (!currentRegistration) {
+            throw new Error("Registration not found");
+          }
+
+          if (
+            currentRegistration.userId !== userId ||
+            currentRegistration.workshopId !== workshopId
+          ) {
+            throw new Error("Registration metadata does not match");
+          }
+
+          if (
+            session.amount_total !== currentRegistration.amount ||
+            session.currency?.toLowerCase() !==
+              currentRegistration.currency.toLowerCase() ||
+            currentRegistration.workshop.price !== currentRegistration.amount ||
+            currentRegistration.workshop.currency.toLowerCase() !==
+              currentRegistration.currency.toLowerCase()
+          ) {
+            throw new Error("Payment amount or currency mismatch");
+          }
+
+          await tx.registration.update({
+            where: { id: registrationId },
+            data: {
+              status: "PAID",
+              paymentStatus: "COMPLETED",
+              paidAt: currentRegistration.paidAt || new Date(),
+              stripeCheckoutSessionId: session.id,
+              ...(typeof session.payment_intent === "string" && {
+                stripePaymentIntentId: session.payment_intent,
+              }),
+            },
+          });
+
+          return currentRegistration;
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          console.log(`Event ${event.id} already processed`);
+          return NextResponse.json({ success: true, statusCode: 200 });
+        }
+
+        if (error instanceof Error && error.message === "Registration not found") {
+          return NextResponse.json(
+            { success: false, error: error.message },
+            { status: 404 }
+          );
+        }
+
+        if (
+          error instanceof Error &&
+          (error.message === "Registration metadata does not match" ||
+            error.message === "Payment amount or currency mismatch")
+        ) {
+          return NextResponse.json(
+            { success: false, error: error.message },
+            { status: 400 }
+          );
+        }
+
+        throw error;
+      }
 
       // Send confirmation email if not already sent
-      const alreadySent = await emailAlreadySent(registrationId);
+      const emailClaimed = await claimConfirmationEmail(registrationId);
 
-      if (!alreadySent) {
-        const formattedAmount = `₹${(registration.amount / 100).toFixed(2)}`;
+      if (emailClaimed) {
+        const formattedAmount = formatCurrency(
+          registration.amount,
+          registration.currency
+        );
         const workshopDate = new Date(registration.workshop.date).toLocaleDateString('en-IN', {
           year: 'numeric',
           month: 'long',
@@ -158,27 +199,28 @@ export async function POST(req: NextRequest) {
             `Failed to send confirmation email for registration ${registrationId}:`,
             emailResult.error
           );
+          await releaseConfirmationEmailClaim(registrationId);
         }
       }
-
-      // Record that this event was processed
-      await prisma.stripeEvent.create({
-        data: {
-          stripeEventId: event.id,
-          type: event.type,
-        },
-      });
 
       return NextResponse.json({ success: true, statusCode: 200 });
     }
 
     // Record unknown event type as processed (to avoid retry)
-    await prisma.stripeEvent.create({
-      data: {
-        stripeEventId: event.id,
-        type: event.type,
-      },
-    });
+    try {
+      await prisma.stripeEvent.create({
+        data: { stripeEventId: event.id, type: event.type },
+      });
+    } catch (error) {
+      if (
+        !(
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        )
+      ) {
+        throw error;
+      }
+    }
 
     return NextResponse.json({ success: true, statusCode: 200 });
   } catch (error) {

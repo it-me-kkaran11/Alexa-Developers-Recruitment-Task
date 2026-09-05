@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoadingState, ErrorState } from "@/components/States";
 import { WorkshopData, RegistrationData } from "@/types";
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,7 +16,6 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -71,18 +70,34 @@ export default function RegisterPage() {
 
       const data = await res.json();
 
-      if (!data.success) {
-        if (res.status === 409) {
+      let registration: RegistrationData;
+
+      if (data.success) {
+        registration = data.data as RegistrationData;
+      } else if (res.status === 409) {
+        // Reuse an existing unpaid registration when retrying from the dashboard.
+        const existingRes = await fetch(
+          `/api/registrations/me?workshopId=${encodeURIComponent(workshopId)}`
+        );
+        const existingData = await existingRes.json();
+
+        if (
+          !existingRes.ok ||
+          !existingData.success ||
+          !existingData.data ||
+          existingData.data.status === "PAID"
+        ) {
           setError(
-            "You have already registered for this workshop. Proceed to checkout from your dashboard."
+            "You already have a completed registration for this workshop."
           );
-        } else {
-          setError(data.error || "Registration failed. Please try again.");
+          return;
         }
+
+        registration = existingData.data as RegistrationData;
+      } else {
+        setError(data.error || "Registration failed. Please try again.");
         return;
       }
-
-      const registration = data.data as RegistrationData;
 
       // Proceed to checkout
       try {
@@ -104,9 +119,13 @@ export default function RegisterPage() {
         const stripe = await import("@stripe/stripe-js").then(
           (mod) => mod.loadStripe
         );
-        const stripeInstance = await stripe(
-          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-        );
+        const publishableKey = checkoutData.data.stripePublishableKey;
+        if (!publishableKey) {
+          setError("Stripe configuration error");
+          return;
+        }
+
+        const stripeInstance = await stripe(publishableKey);
 
         if (!stripeInstance) {
           setError("Stripe configuration error");
@@ -157,12 +176,6 @@ export default function RegisterPage() {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-800">{error}</p>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-800">{successMessage}</p>
             </div>
           )}
 
@@ -229,7 +242,7 @@ export default function RegisterPage() {
           {/* Terms */}
           <div className="mb-8 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
             <p>
-              By clicking "Proceed to Payment", you agree to our Terms of Service
+              By clicking &quot;Proceed to Payment&quot;, you agree to our Terms of Service
               and understand that you will be charged ₹{(workshop.price / 100).toFixed(2)}{" "}
               for this workshop.
             </p>
@@ -254,5 +267,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

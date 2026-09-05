@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 /**
  * Get active workshop
  * We'll assume there's only one active workshop for this platform
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const workshop = await prisma.workshop.findFirst({
       where: { active: true },

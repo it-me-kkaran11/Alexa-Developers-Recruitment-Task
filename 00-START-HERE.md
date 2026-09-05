@@ -44,7 +44,7 @@ workshop-registration-platform/
 │  ├─ .eslintrc.json               ESLint config
 │  ├─ .prettierrc                  Prettier config
 │  ├─ .gitignore                   Git ignore
-│  └─ docker-compose.yml           PostgreSQL setup
+│  └─ .env.example                 Supabase PostgreSQL template
 │
 ├─ 📱 Frontend (app/)
 │  ├─ page.tsx                     Landing page
@@ -204,7 +204,7 @@ cp .env.example .env.local
 
 ### 3️⃣ Set Up Database
 ```bash
-docker-compose up -d
+# Configure DATABASE_URL and DIRECT_URL with Supabase connection strings first
 npx prisma migrate dev
 npx prisma db seed
 ```

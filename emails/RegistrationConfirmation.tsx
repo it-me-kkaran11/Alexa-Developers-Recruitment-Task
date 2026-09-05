@@ -1,5 +1,3 @@
-import React from "react";
-
 interface RegistrationConfirmationEmailProps {
   attendeeName: string;
   workshopName: string;

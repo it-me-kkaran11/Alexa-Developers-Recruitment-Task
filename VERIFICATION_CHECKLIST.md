@@ -166,8 +166,8 @@ Use this checklist to verify your setup is complete and correct before running t
 ## Troubleshooting Checklist
 
 ### Database Issues
-- [ ] PostgreSQL is running: `psql -U user -d workshop_db`
-- [ ] DATABASE_URL is correct
+- [ ] Supabase project is running
+- [ ] DATABASE_URL and DIRECT_URL are copied from Supabase Database/Connect settings
 - [ ] Can connect with Prisma: `npx prisma db execute --stdin < /dev/null`
 - [ ] No migration errors in history
 

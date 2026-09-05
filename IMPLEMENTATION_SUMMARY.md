@@ -133,7 +133,7 @@ Complete project structure with:
 - **.eslintrc.json**: ESLint configuration
 - **.prettierrc**: Prettier formatting configuration
 - **.gitignore**: Git ignore patterns
-- **docker-compose.yml**: Local PostgreSQL setup
+- **.env.example**: Supabase PostgreSQL environment template
 
 ### 15. Documentation ✓
 - **README.md**: Comprehensive project documentation
@@ -272,7 +272,7 @@ Complete project structure with:
 - [ ] Configure Stripe test keys
 - [ ] Set up Resend account (optional)
 - [ ] Configure `ADMIN_EMAILS`
-- [ ] Start PostgreSQL (docker-compose or local)
+- [ ] Create a Supabase project and configure DATABASE_URL and DIRECT_URL
 - [ ] Run `npm install`
 - [ ] Run `npx prisma migrate dev`
 - [ ] Run `npx prisma db seed`

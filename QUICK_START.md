@@ -1,116 +1,109 @@
-# Quick Start (5 Minutes)
+# Quick Start
 
-Get the workshop registration platform running locally in 5 minutes.
+This application uses Supabase PostgreSQL through Prisma. No local PostgreSQL server or Docker is required.
 
 ## Prerequisites
-- Node.js 18+
-- PostgreSQL running on localhost:5432
-- Google/GitHub OAuth credentials
-- Stripe account
 
-## 1. Install & Configure (2 min)
+- Node.js 18+
+- A Supabase project
+- Google and/or GitHub OAuth credentials
+- Stripe account in test mode
+- Resend account (optional for confirmation email)
+
+## 1. Create a Supabase Project
+
+Create a project at [supabase.com](https://supabase.com). Wait until the database is ready.
+
+## 2. Get Supabase Connection Strings
+
+In the Supabase dashboard, open **Project Settings -> Database** and find **Connection string** or **Connect**. Copy:
+
+- The pooled connection string for `DATABASE_URL`, used by the running application.
+- The direct connection string for `DIRECT_URL`, used by Prisma migrations when required.
+
+Keep both URLs private. Replace any placeholders in the copied strings with your database password.
+
+## 3. Create `.env.local`
 
 ```bash
 npm install
-cp .env.example .env.local
+copy .env.example .env.local
 ```
 
-Edit `.env.local` with your credentials:
+On macOS/Linux, use `cp .env.example .env.local` instead of `copy`.
 
-```env
-# Database
-DATABASE_URL="postgresql://user:pass@localhost:5432/workshop_db"
+## 4. Configure `DATABASE_URL` and `DIRECT_URL`
 
-# Auth (generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-AUTH_SECRET="your-secret-here"
-AUTH_URL="http://localhost:3000"
+Edit `.env.local` and set both Supabase URLs. Also set your Auth.js, Stripe, Resend, and admin values. Never prefix either database variable with `NEXT_PUBLIC_`.
 
-# OAuth
-AUTH_GOOGLE_ID="your-google-id"
-AUTH_GOOGLE_SECRET="your-google-secret"
-AUTH_GITHUB_ID="your-github-id"
-AUTH_GITHUB_SECRET="your-github-secret"
-
-# Stripe (TEST MODE - use sk_test_... and pk_test_...)
-STRIPE_SECRET_KEY="sk_test_..."
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..." (fill after webhook setup)
-
-# Email (Optional)
-RESEND_API_KEY="re_..."
-RESEND_FROM_EMAIL="noreply@yourdomain.com"
-
-# Admin
-ADMIN_EMAILS="your-email@example.com"
-```
-
-## 2. Database Setup (1 min)
+## 5. Generate Prisma Client
 
 ```bash
-npx prisma migrate dev
+npx prisma generate
+npx prisma validate
+```
+
+## 6. Run Prisma Migrations
+
+```bash
+npx prisma migrate dev --name init
+```
+
+For a hosted Supabase database, this applies the schema to Supabase. If your deployment workflow does not allow `migrate dev`, use `npx prisma migrate deploy` after creating migrations in development.
+
+## 7. Seed Supabase
+
+```bash
 npx prisma db seed
 ```
 
-## 3. Stripe Webhook (1 min) - In a new terminal
+The seed uses Prisma and an idempotent upsert, so running it again does not create duplicate workshops. Admin users are created or promoted from `ADMIN_EMAILS`.
+
+## 8. Configure Google/GitHub OAuth
+
+Use these local callback URLs:
+
+- Google: `http://localhost:3000/api/auth/callback/google`
+- GitHub: `http://localhost:3000/api/auth/callback/github`
+
+Put the client IDs and secrets in `.env.local`.
+
+## 9. Configure Stripe Test Mode
+
+Set the Stripe test secret and publishable keys. Do not expose `STRIPE_SECRET_KEY` to browser code.
+
+## 10. Start the Stripe Webhook Listener
+
+In a second terminal:
 
 ```bash
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
-# Copy the webhook secret (whsec_...) to .env.local STRIPE_WEBHOOK_SECRET
 ```
 
-## 4. Start Dev Server (1 min)
+Copy the displayed `whsec_...` value into `STRIPE_WEBHOOK_SECRET`. Only the verified webhook marks a registration as paid.
+
+## 11. Configure Resend
+
+Set `RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL`. Email is optional and does not block payment confirmation.
+
+## 12. Run the Application
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000/).
 
-## Done! 🎉
+## Verify Supabase Tables
 
-You now have:
-- ✓ Landing page with workshop details
-- ✓ OAuth login (Google/GitHub)
-- ✓ Workshop registration
-- ✓ Stripe payment checkout
-- ✓ User dashboard
-- ✓ Admin dashboard
+In Supabase, open **Table Editor** to inspect `User`, `Account`, `Session`, `Workshop`, `Registration`, `StripeEvent`, and `VerificationToken`. You can also run `npx prisma studio` against the configured Supabase database.
 
-## Test It
+## Test Payment
 
-1. Sign in with Google or GitHub
-2. Click "Register Now"
-3. Click "Proceed to Payment"
-4. Use test card: `4242 4242 4242 4242`
-5. Expiry: Any future date, CVC: Any 3 digits
-6. Confirm payment
-7. Check dashboard and email
+1. Sign in with Google or GitHub.
+2. Register for the workshop.
+3. Pay with Stripe test card `4242 4242 4242 4242`.
+4. Confirm the Stripe webhook runs.
+5. Verify the registration becomes `PAID` in the dashboard and Supabase.
 
-## Troubleshooting
-
-**Database connection error?**
-```bash
-docker-compose up -d  # Start PostgreSQL with Docker
-```
-
-**OAuth not working?**
-Verify redirect URIs match exactly:
-- Google: `http://localhost:3000/api/auth/callback/google`
-- GitHub: `http://localhost:3000/api/auth/callback/github`
-
-**Stripe webhook not processing?**
-- Ensure `stripe listen` is running
-- Verify webhook secret in `.env.local`
-
-**Email not sending?**
-Email won't block payments. Check Resend API key is valid.
-
-## Full Documentation
-
-- See [SETUP.md](./SETUP.md) for detailed setup guide
-- See [README.md](./README.md) for complete documentation
-- See [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) for feature list
-
----
-
-**Happy coding!** 🚀
+For detailed provider setup, see [SETUP.md](./SETUP.md) and [README.md](./README.md).

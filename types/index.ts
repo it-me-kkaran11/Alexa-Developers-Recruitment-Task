@@ -22,6 +22,7 @@ export interface RegistrationData {
   registeredAt: Date;
   paidAt?: Date | null;
   confirmationEmailSentAt?: Date | null;
+  confirmationEmailSendingAt?: Date | null;
 }
 
 export interface WorkshopData {

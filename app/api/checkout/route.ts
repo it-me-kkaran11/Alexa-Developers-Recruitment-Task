@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
 
     // Verify price from database (never trust client)
     const workshop = registration.workshop;
-    if (workshop.price !== registration.amount) {
+    if (
+      workshop.price !== registration.amount ||
+      workshop.currency.toLowerCase() !== registration.currency.toLowerCase()
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -53,6 +56,20 @@ export async function POST(req: NextRequest) {
           statusCode: 400,
         },
         { status: 400 }
+      );
+    }
+
+    if (
+      registration.status === "PAID" ||
+      registration.paymentStatus === "COMPLETED"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "This registration has already been paid",
+          statusCode: 409,
+        },
+        { status: 409 }
       );
     }
 

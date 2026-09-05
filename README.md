@@ -1,428 +1,171 @@
 # Workshop Registration Platform
 
-A production-ready, full-stack workshop/event registration platform with integrated payments, email confirmations, and admin dashboard.
+A full-stack workshop registration platform built with Next.js, Auth.js, Prisma, Supabase PostgreSQL, Stripe, and Resend.
 
-## 🎯 Features
+## Architecture
 
-- **OAuth Authentication**: Google and GitHub OAuth integration with Auth.js
-- **Workshop Registration**: Users can browse and register for workshops
-- **Stripe Payments**: Secure payment processing with Stripe Checkout
-- **Email Confirmations**: Automated confirmation emails via Resend
-- **Admin Dashboard**: Full registration management and analytics
-- **Role-Based Access Control**: USER and ADMIN roles with server-side authorization
-- **Duplicate Prevention**: Prevents duplicate registrations and payment processing
-- **Idempotent Webhooks**: Safely handles Stripe webhook retries
-- **Responsive UI**: Professional, mobile-friendly design with Tailwind CSS
+```text
+Google/GitHub -> Auth.js -> Next.js -> Prisma -> Supabase PostgreSQL
+User -> Registration -> Stripe Checkout -> verified webhook -> Prisma -> PAID -> Resend
+```
 
-## 🛠️ Tech Stack
+The existing authentication, registration, Stripe checkout, webhook, admin dashboard, user dashboard, and email flows are preserved. Only the database hosting configuration is changed to Supabase PostgreSQL.
 
-### Frontend
-- Next.js 15 (App Router)
-- React 19
-- TypeScript
-- Tailwind CSS
-- Responsive Design
+## Features
 
-### Backend
-- Next.js API Routes
-- Node.js/TypeScript
-- PostgreSQL
-- Prisma ORM
+- Google and GitHub OAuth through Auth.js
+- Prisma-backed users, OAuth accounts, sessions, workshops, registrations, and Stripe events
+- Duplicate registration protection
+- Stripe Checkout with server-side price verification
+- Idempotent, signature-verified Stripe webhooks
+- Resend confirmation emails
+- User dashboard and USER/ADMIN dashboard
+- Zod validation and server-side authorization
 
-### Authentication
-- Auth.js
-- Google OAuth
-- GitHub OAuth
+## Prerequisites
 
-### Payments
-- Stripe Checkout (TEST MODE)
-- Webhook handling with signature verification
+- Node.js 18+
+- Supabase project
+- Google/GitHub OAuth credentials
+- Stripe account in test mode
+- Resend account (optional)
 
-### Email
-- Resend
-- HTML templates
+No local PostgreSQL installation or Docker is required.
 
-### Validation & Security
-- Zod validation
-- Server-side authorization helpers
+## Supabase Setup
 
-## 📋 Prerequisites
+### 1. Create a Supabase project
 
-- Node.js 18+ 
-- PostgreSQL 12+ (local or remote)
-- Stripe Account (test keys)
-- Google OAuth Credentials
-- GitHub OAuth App Credentials
-- Resend Account (optional for email)
+Create a project at [supabase.com](https://supabase.com).
 
-## 🚀 Installation & Setup
+### 2. Get the PostgreSQL connection strings
 
-### 1. Clone and Install Dependencies
+In the Supabase dashboard, open **Project Settings -> Database -> Connection string**, or use the **Connect** button. Supabase provides connection strings there:
+
+- `DATABASE_URL`: the pooled Supabase PostgreSQL connection used by the running application.
+- `DIRECT_URL`: the direct Supabase PostgreSQL connection used by Prisma migrations when required.
+
+Keep these values private and replace any password placeholder with the project database password.
+
+### 3. Create `.env.local`
 
 ```bash
-# Install dependencies
 npm install
+copy .env.example .env.local
 ```
 
-### 2. Set Up Environment Variables
+On macOS/Linux, use `cp .env.example .env.local`.
 
-```bash
-# Copy the example environment file
-cp .env.example .env.local
-```
+### 4. Configure environment variables
 
-Edit `.env.local` with your credentials:
+Set the Supabase URLs and provider credentials in `.env.local`:
 
-#### Database
-```
-DATABASE_URL="postgresql://username:password@localhost:5432/workshop_db"
-```
-
-#### NextAuth Configuration
-```
-AUTH_SECRET="generate-a-random-secret-with: openssl rand -base64 32"
+```env
+DATABASE_URL="YOUR_SUPABASE_DATABASE_URL"
+DIRECT_URL="YOUR_SUPABASE_DIRECT_DATABASE_URL"
+AUTH_SECRET="<random-secret>"
 AUTH_URL="http://localhost:3000"
-```
-
-#### Google OAuth Setup
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Create OAuth 2.0 credentials (Web application)
-4. Add `http://localhost:3000/api/auth/callback/google` to authorized redirect URIs
-5. Copy Client ID and Secret to `.env.local`:
-
-```
-AUTH_GOOGLE_ID="your-google-client-id"
-AUTH_GOOGLE_SECRET="your-google-client-secret"
-```
-
-#### GitHub OAuth Setup
-1. Go to GitHub Settings → Developer settings → OAuth Apps
-2. Create new OAuth App
-3. Set Authorization callback URL to `http://localhost:3000/api/auth/callback/github`
-4. Copy Client ID and Secret to `.env.local`:
-
-```
-AUTH_GITHUB_ID="your-github-app-id"
-AUTH_GITHUB_SECRET="your-github-app-secret"
-```
-
-#### Stripe Configuration
-1. Go to [Stripe Dashboard](https://dashboard.stripe.com)
-2. Ensure you're in **TEST MODE**
-3. Get your API keys from Settings → API keys
-4. Add to `.env.local`:
-
-```
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+AUTH_GOOGLE_ID="..."
+AUTH_GOOGLE_SECRET="..."
+AUTH_GITHUB_ID="..."
+AUTH_GITHUB_SECRET="..."
 STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..." (get this after webhook setup)
+STRIPE_WEBHOOK_SECRET="whsec_..."
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
-```
-
-#### Resend Email Setup (Optional)
-1. Go to [Resend Dashboard](https://resend.com)
-2. Create API key
-3. Add to `.env.local`:
-
-```
 RESEND_API_KEY="re_..."
 RESEND_FROM_EMAIL="noreply@yourdomain.com"
+ADMIN_EMAILS="admin@example.com"
 ```
 
-#### Admin Configuration
-```
-ADMIN_EMAILS="admin@example.com,another-admin@example.com"
-```
+Do not use `NEXT_PUBLIC_DATABASE`, `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`, or any other browser-exposed database credential. This application does not need a Supabase service-role key.
 
-### 3. Database Setup
+### 5. Generate Prisma Client
 
 ```bash
-# Create database
-createdb workshop_db
+npx prisma generate
+```
 
-# Run migrations
-npx prisma migrate dev
+### 6. Run migrations
 
-# Seed database with default workshop and admin user
+```bash
+npx prisma migrate dev --name init
+```
+
+For an environment that already has migration files, use `npx prisma migrate deploy`.
+
+### 7. Seed the database
+
+```bash
 npx prisma db seed
 ```
 
-### 4. Stripe Webhook Setup (Local Development)
+The TypeScript seed uses Prisma and an idempotent upsert for the stable `default-workshop` ID. Re-running it does not create duplicate workshops.
 
-Install Stripe CLI: https://stripe.com/docs/stripe-cli
+### 8. Verify tables
+
+In the Supabase dashboard, open **Table Editor**. You should see `User`, `Account`, `Session`, `Workshop`, `Registration`, `StripeEvent`, and `VerificationToken` after migration.
+
+## Provider Setup
+
+### Google and GitHub OAuth
+
+Configure these callback URLs for local development:
+
+- Google: `http://localhost:3000/api/auth/callback/google`
+- GitHub: `http://localhost:3000/api/auth/callback/github`
+
+### Stripe test mode
+
+Use Stripe test keys. In another terminal, forward webhooks:
 
 ```bash
-# Start webhook listener
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
-
-# This will output a webhook signing secret
-# Copy the signing secret to your .env.local:
-STRIPE_WEBHOOK_SECRET="whsec_..."
 ```
 
-### 5. Start Development Server
+Copy the CLI signing secret to `STRIPE_WEBHOOK_SECRET`. Registrations become `PAID` only after the verified webhook, never merely after loading the success page.
+
+### Resend
+
+Set a Resend API key and verified sender. Email is optional; failures do not roll back a verified payment.
+
+## Run
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000/).
 
-## 📱 Testing the Complete Flow
+## Test the Flow
 
-### 1. Sign In
-- Click "Sign In" on home page
-- Choose Google or GitHub
-- Follow OAuth flow
+1. Sign in with Google or GitHub.
+2. Register for the seeded workshop.
+3. Complete Stripe Checkout with `4242 4242 4242 4242`.
+4. Confirm the Stripe CLI receives `checkout.session.completed`.
+5. Confirm the webhook changes the Supabase registration to `PAID`.
+6. Check the dashboard, admin dashboard, and Resend email.
 
-### 2. Register for Workshop
-- On home page, click "Register Now"
-- Review registration summary
-- Click "Proceed to Payment"
+## Commands
 
-### 3. Stripe Checkout
-- Use Stripe test card: `4242 4242 4242 4242`
-- Expiry: Any future date (e.g., 12/25)
-- CVC: Any 3 digits
-- Complete payment
-
-### 4. Verify Payment
-- Webhook should process payment automatically
-- You'll be redirected to success page
-- Check dashboard to see "PAID" status
-- Check email for confirmation (if Resend configured)
-
-### 5. Admin Dashboard
-- Set your email in `ADMIN_EMAILS` in `.env.local`
-- Sign out and sign back in
-- Access /admin dashboard
-- View all registrations, stats, and search/filter
-
-## 💳 Stripe Test Cards
-
-| Card | Number | Result |
-|------|--------|--------|
-| Visa | 4242 4242 4242 4242 | Success |
-| Decline | 4000 0000 0000 0002 | Declined |
-
-[Full Stripe Test Cards List](https://stripe.com/docs/testing)
-
-## 🔐 Security Features
-
-- **OAuth Only**: No password storage, delegated authentication
-- **Server-Side Authorization**: All API routes verify permissions server-side
-- **Webhook Signature Verification**: Stripe signatures verified before processing
-- **Idempotent Webhooks**: Prevents duplicate payment processing
-- **CSRF Protection**: Built into Next.js and Auth.js
-- **Secure Session**: HTTP-only cookies via Auth.js
-- **Price Verification**: Server always verifies prices, not client
-- **No Secret Leakage**: Secrets never sent to frontend
-- **Rate Limiting**: Can be added to API routes as needed
-
-## 📊 Database Schema
-
-### User
-- id, name, email, image, role, createdAt, updatedAt
-- Relations: registrations, accounts, sessions
-
-### Workshop
-- id, title, description, price, currency, date, startTime, endTime, location, capacity, active
-- Indexes: active, date
-
-### Registration
-- id, registrationNumber, userId, workshopId, status, paymentStatus, amount, currency
-- stripeCheckoutSessionId, stripePaymentIntentId, registeredAt, paidAt, confirmationEmailSentAt
-- Unique constraint: userId + workshopId (prevents duplicates)
-- Indexes: userId, workshopId, status, paymentStatus
-
-### StripeEvent
-- id, stripeEventId (unique), type, processedAt
-- Prevents duplicate webhook processing
-
-## 📁 Project Structure
-
-```
-app/
-├── page.tsx                      # Home/landing page
-├── login/page.tsx               # OAuth login
-├── register/page.tsx            # Workshop registration
-├── dashboard/page.tsx           # User dashboard
-├── admin/page.tsx               # Admin dashboard
-├── checkout/
-│   ├── success/page.tsx         # Payment success
-│   └── cancel/page.tsx          # Payment cancelled
-├── api/
-│   ├── auth/[...nextauth]/route.ts
-│   ├── registrations/
-│   │   ├── route.ts             # POST: create, GET: user's registrations
-│   │   └── me/route.ts          # GET: specific registration
-│   ├── checkout/route.ts        # POST: create Stripe session
-│   ├── workshops/route.ts       # GET: active workshop
-│   ├── admin/
-│   │   ├── registrations/route.ts  # GET: all registrations (admin)
-│   │   └── stats/route.ts          # GET: dashboard stats (admin)
-│   └── webhooks/
-│       └── stripe/route.ts       # POST: Stripe events
-
-components/
-├── Navbar.tsx                   # Navigation
-├── WorkshopHero.tsx            # Landing page hero
-├── StatusBadge.tsx             # Status display
-├── States.tsx                  # Loading/Error/Empty states
-
-lib/
-├── auth.ts                     # Auth.js configuration
-├── db.ts                       # Prisma client
-├── stripe.ts                   # Stripe utilities
-├── email.ts                    # Email utilities
-├── validations.ts              # Zod schemas
-├── authorization.ts            # Auth helpers
-├── registration.ts             # Registration utilities
-└── utils.ts                    # General utilities
-
-emails/
-└── RegistrationConfirmation.tsx # Email template
-
-prisma/
-├── schema.prisma               # Database schema
-└── seed.ts                     # Database seeding script
-
-types/
-└── index.ts                    # TypeScript interfaces
-
-__tests__/
-└── lib/
-    ├── utils.test.ts           # Utility tests
-    └── validations.test.ts     # Validation tests
-
-middleware.ts                   # Route protection middleware
-```
-
-## 🔄 Application Flow
-
-```
-1. User visits landing page
-   ↓
-2. User clicks "Sign In"
-   ↓
-3. OAuth authentication (Google/GitHub)
-   ↓
-4. User returns, can see "Register Now"
-   ↓
-5. User clicks "Register Now"
-   ↓
-6. Registration created (PENDING status)
-   ↓
-7. User clicks "Proceed to Payment"
-   ↓
-8. Stripe Checkout Session created
-   ↓
-9. User redirected to Stripe Checkout
-   ↓
-10. User enters payment details (test card)
-    ↓
-11. Payment processed by Stripe
-    ↓
-12. Stripe sends webhook to /api/webhooks/stripe
-    ↓
-13. Webhook signature verified
-    ↓
-14. Registration marked PAID
-    ↓
-15. Confirmation email sent (if Resend configured)
-    ↓
-16. User redirected to success page
-    ↓
-17. Dashboard shows PAID status
-```
-
-## 🧪 Testing
-
-Run tests:
 ```bash
+npx prisma generate
+npx prisma validate
+npx prisma migrate dev --name init
+npx prisma migrate deploy
+npx prisma db seed
+npx prisma studio
 npm test
+npm run lint
+npm run build
 ```
 
-Run tests in watch mode:
-```bash
-npm run test:watch
-```
+## Security
 
-### Test Coverage
-- Utility functions
-- Validation schemas
-- Authorization helpers
-- Registration logic
-- Email sending
+- Database URLs, Auth.js secrets, Stripe secret keys, and Resend keys are server-only.
+- `.env`, `.env.local`, and other environment files are ignored by Git.
+- Prisma queries write core application data to Supabase PostgreSQL.
+- Stripe signatures and payment amounts are verified server-side.
+- Auth.js continues to manage Google/GitHub login and database sessions.
 
-## 🐛 Troubleshooting
-
-### Webhook Not Processing
-1. Check Stripe CLI is running: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
-2. Verify webhook secret in `.env.local` matches Stripe CLI output
-3. Check server logs for webhook errors
-
-### Email Not Sending
-1. Verify Resend API key is set in `.env.local`
-2. Check RESEND_FROM_EMAIL is a valid domain in Resend
-3. Email will not block payment - check logs for errors
-
-### Database Connection Error
-1. Ensure PostgreSQL is running
-2. Verify DATABASE_URL is correct
-3. Run migrations: `npx prisma migrate dev`
-
-### OAuth Not Working
-1. Verify OAuth app is configured correctly
-2. Check redirect URIs match exactly: `http://localhost:3000/api/auth/callback/{provider}`
-3. Ensure environment variables are loaded: `npm run dev`
-
-### Stripe Payment Failing
-1. Use test card: `4242 4242 4242 4242`
-2. Ensure STRIPE_SECRET_KEY starts with `sk_test_`
-3. Check Stripe Dashboard for payment status
-
-## 📈 Production Deployment
-
-### Pre-Deployment Checklist
-- [ ] Verify all environment variables are set
-- [ ] Run tests: `npm test`
-- [ ] Build project: `npm run build`
-- [ ] Test in production-like environment
-- [ ] Set up real Stripe keys (not test keys)
-- [ ] Configure real OAuth credentials
-- [ ] Set up Resend with real domain
-- [ ] Enable HTTPS
-- [ ] Set AUTH_URL to production domain
-- [ ] Backup database regularly
-
-### Deployment Options
-- Vercel (recommended for Next.js)
-- AWS (EC2, ECS, Lambda)
-- Google Cloud Run
-- DigitalOcean App Platform
-- Heroku
-
-## 📚 Additional Resources
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Auth.js Documentation](https://authjs.dev)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [Stripe API Documentation](https://stripe.com/docs/api)
-- [Tailwind CSS](https://tailwindcss.com)
-
-## 📝 License
-
-This project is open source and available under the MIT License.
-
-## 💬 Support
-
-For issues and questions:
-1. Check the troubleshooting section
-2. Review server logs
-3. Check Stripe Dashboard
-4. Verify environment variables
-
----
-
-**Happy coding! 🎉**
+See [SETUP.md](./SETUP.md) for the detailed setup guide and [QUICK_START.md](./QUICK_START.md) for the condensed version.

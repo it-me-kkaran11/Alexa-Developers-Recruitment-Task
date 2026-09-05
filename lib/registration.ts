@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { RegistrationStatus } from "@prisma/client";
+import { Prisma, RegistrationStatus } from "@prisma/client";
 
 /**
  * Generate a unique human-readable registration number
@@ -64,18 +64,26 @@ export async function createRegistration(
     throw new Error("User already has a registration for this workshop");
   }
 
-  const registration = await prisma.registration.create({
-    data: {
-      registrationNumber: generateRegistrationNumber(),
-      userId,
-      workshopId,
-      status: RegistrationStatus.PENDING,
-      amount,
-      currency,
-    },
-  });
-
-  return registration;
+  try {
+    return await prisma.registration.create({
+      data: {
+        registrationNumber: generateRegistrationNumber(),
+        userId,
+        workshopId,
+        status: RegistrationStatus.PENDING,
+        amount,
+        currency,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new Error("User already has a registration for this workshop");
+    }
+    throw error;
+  }
 }
 
 /**
@@ -119,7 +127,34 @@ export async function markEmailSent(registrationId: string) {
     where: { id: registrationId },
     data: {
       confirmationEmailSentAt: new Date(),
+      confirmationEmailSendingAt: null,
     },
+  });
+}
+
+/** Claim confirmation-email delivery so concurrent webhook requests cannot send twice. */
+export async function claimConfirmationEmail(registrationId: string) {
+  const retryAfter = new Date(Date.now() - 10 * 60 * 1000);
+
+  const result = await prisma.registration.updateMany({
+    where: {
+      id: registrationId,
+      confirmationEmailSentAt: null,
+      OR: [
+        { confirmationEmailSendingAt: null },
+        { confirmationEmailSendingAt: { lt: retryAfter } },
+      ],
+    },
+    data: { confirmationEmailSendingAt: new Date() },
+  });
+
+  return result.count === 1;
+}
+
+export async function releaseConfirmationEmailClaim(registrationId: string) {
+  await prisma.registration.updateMany({
+    where: { id: registrationId, confirmationEmailSentAt: null },
+    data: { confirmationEmailSendingAt: null },
   });
 }
 

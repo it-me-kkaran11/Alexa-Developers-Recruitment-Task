@@ -1,4 +1,4 @@
-import { generateRegistrationNumber, hasExistingRegistration, createRegistration } from "@/lib/registration";
+import { generateRegistrationNumber } from "@/lib/registration";
 import { getStatusColor, getStatusText, formatCurrency } from "@/lib/utils";
 
 describe("Registration Utils", () => {

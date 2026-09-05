@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { LoadingState, ErrorState } from "@/components/States";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 interface Registration {
   id: string;
@@ -50,21 +50,7 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
-
-    if (session?.user?.role !== "ADMIN") {
-      router.push("/");
-      return;
-    }
-
-    fetchData();
-  }, [status, session, router, page, search, statusFilter, paymentStatusFilter]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -100,7 +86,21 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit, page, search, statusFilter, paymentStatusFilter]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+      return;
+    }
+
+    if (session?.user?.role !== "ADMIN") {
+      router.push("/");
+      return;
+    }
+
+    fetchData();
+  }, [status, session?.user?.role, router, fetchData]);
 
   if (status === "loading" || loading) return <LoadingState />;
 

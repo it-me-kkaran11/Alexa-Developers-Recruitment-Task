@@ -1,4 +1,10 @@
+import dotenv from "dotenv";
+import path from "path";
 import { PrismaClient } from "@prisma/client";
+
+dotenv.config({
+  path: path.resolve(process.cwd(), ".env.local"),
+});
 
 const prisma = new PrismaClient();
 
@@ -14,9 +20,9 @@ async function main() {
       title: "Full-Stack Web Development Workshop",
       description:
         "Learn how to build and deploy modern full-stack applications using React, Next.js, APIs, databases, authentication, and payments. This comprehensive workshop covers industry best practices and real-world implementation patterns.",
-      price: 199900, // ₹1999 (in paisa)
+      price: 199900,
       currency: "INR",
-      date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       startTime: "09:00 AM",
       endTime: "05:00 PM",
       location: "Virtual (Online via Zoom)",

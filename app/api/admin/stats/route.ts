@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/authorization";
 import { prisma } from "@/lib/db";
 import { RegistrationStatus, PaymentStatus } from "@prisma/client";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     await requireAdmin();
 

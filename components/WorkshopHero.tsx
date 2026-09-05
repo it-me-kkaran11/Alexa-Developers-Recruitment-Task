@@ -72,7 +72,7 @@ export function WorkshopHero({
 
               <div className="space-y-3 text-left bg-blue-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-900 mb-3">
-                  What You'll Learn:
+                  What You&apos;ll Learn:
                 </h3>
                 <ul className="space-y-2 text-sm text-gray-700">
                   <li>✓ Industry best practices</li>

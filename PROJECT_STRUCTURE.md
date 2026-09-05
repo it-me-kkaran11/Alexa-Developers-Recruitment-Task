@@ -10,7 +10,7 @@ Complete directory structure and file descriptions for the workshop registration
 .eslintrc.json              # ESLint configuration
 .gitignore                  # Git ignore patterns
 .prettierrc                 # Prettier code formatting rules
-docker-compose.yml          # Docker Compose for PostgreSQL
+.env.example                # Supabase PostgreSQL environment template
 jest.config.js              # Jest testing configuration
 jest.setup.ts               # Jest test environment setup
 middleware.ts               # NextAuth middleware for route protection
@@ -304,7 +304,8 @@ StripeEvent
 ## Environment Variables
 
 ```
-DATABASE_URL                   # PostgreSQL connection string
+DATABASE_URL                   # Supabase pooled PostgreSQL runtime connection
+DIRECT_URL                     # Supabase direct PostgreSQL migration connection
 AUTH_SECRET                    # Random secret for NextAuth
 AUTH_URL                       # Application URL for callbacks
 AUTH_GOOGLE_ID                 # Google OAuth Client ID

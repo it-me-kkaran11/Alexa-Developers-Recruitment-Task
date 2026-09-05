@@ -21,18 +21,19 @@ export default function CheckoutSuccessPage() {
       <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
         <div className="text-6xl mb-6">✅</div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Payment Successful!
+          Payment Submitted
         </h1>
         <p className="text-gray-600 mb-8">
-          Your registration and payment have been confirmed. You'll receive a
-          confirmation email shortly with your registration details.
+          Stripe has received your payment. Your registration will be confirmed
+          after our server verifies the Stripe webhook. You will receive a
+          confirmation email after verification.
         </p>
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
           <p className="text-sm text-green-800">
             <strong>Next Steps:</strong>
             <br />
-            1. Check your email for confirmation
+            1. Wait for payment verification
             <br />
             2. Review your registration details
             <br />
