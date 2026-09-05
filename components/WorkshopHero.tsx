@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { formatDate } from "@/lib/utils";
 import { WorkshopData } from "@/types";
 

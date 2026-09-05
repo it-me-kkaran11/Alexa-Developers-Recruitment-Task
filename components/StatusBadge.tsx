@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { RegistrationStatus, PaymentStatus } from "@prisma/client";
 import { getStatusColor, getStatusText } from "@/lib/utils";
 
